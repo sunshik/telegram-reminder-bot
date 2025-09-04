@@ -4,7 +4,7 @@ from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, Callb
 from datetime import datetime
 import sqlite3
 import re
-
+from datetime import datetime, timedelta
 
 # Настройка логирования
 logging.basicConfig(
@@ -57,6 +57,8 @@ def start(update: Update, context: CallbackContext):
     print("📩 /start получена!")
     update.message.reply_text('Привет! Я бот-напоминалка...')
 
+
+
 def handle_message(update: Update, context: CallbackContext):
     try:
         text = update.message.text
@@ -68,12 +70,18 @@ def handle_message(update: Update, context: CallbackContext):
         if match:
             date_str, reminder_text = match.groups()
             try:
+                # локальное время, которое ввёл пользователь
+                reminder_date_local = datetime.strptime(date_str, "%d.%m.%Y %H:%M")
 
-                reminder_date = datetime.strptime(date_str, "%d.%m.%Y %H:%M").strftime("%Y-%m-%d %H:%M")
-                print(f"📆 Дата распознана как: {reminder_date}")
+                # переводим в UTC для базы (если твоя зона +3)
+                reminder_date_utc = reminder_date_local - timedelta(hours=3)
+
+                reminder_date = reminder_date_utc.strftime("%Y-%m-%d %H:%M")
+                print(f"📆 Дата распознана как (UTC для БД): {reminder_date}")
+
                 add_reminder(chat_id, reminder_text, reminder_date)
-
                 update.message.reply_text(f"✅ Напоминание создано на {date_str}!")
+
             except ValueError:
                 update.message.reply_text("❌ Неверный формат даты! Используй ДД.ММ.ГГГГ ЧЧ:ММ")
         else:
@@ -89,7 +97,7 @@ def main():
     import os
     TOKEN = os.environ.get("BOT_TOKEN")
     updater = Updater(TOKEN, use_context=True)
-    
+
     updater.bot.delete_webhook()  # 💥 Обязательно, если раньше был Webhook
 
     dp = updater.dispatcher
